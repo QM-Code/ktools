@@ -1,6 +1,6 @@
 # ktools
 
-This directory is a workspace of sibling repositories, not a single repo or single build target. The root `ktools/` directory does not have its own `kbuild.py`, `CMakeLists.txt`, or `.git/`. Work happens inside the individual repos:
+`ktools/` is a Git superproject that pins a known-good set of sibling repository commits. The root `ktools/` directory does not have its own `kbuild.py` or `CMakeLists.txt`; work still happens inside the individual repos:
 
 - `kbuild/`
 - `kcli/`
@@ -8,6 +8,35 @@ This directory is a workspace of sibling repositories, not a single repo or sing
 - `kconfig/`
 
 If you only need the `kbuild` stack, start here before opening source files.
+
+## Superproject Usage
+
+- Clone the full pinned workspace with:
+
+```bash
+git clone --recurse-submodules git@github.com:QM-Code/ktools.git
+```
+
+- If you already cloned `ktools/` without submodules:
+
+```bash
+git submodule update --init --recursive
+```
+
+- Each child repo stays independent. You can still `cd kbuild` or `cd kcli` and commit or push there normally.
+- To move `ktools` to a newer child-repo commit:
+
+```bash
+cd kbuild
+git pull
+# or make changes, commit, and push
+cd ..
+git add kbuild
+git commit -m "Update kbuild"
+git push
+```
+
+- The superproject records exact child commits, so other machines get the same known working set.
 
 ## Repo Map
 
