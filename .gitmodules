@@ -1,0 +1,12 @@
+[submodule "kbuild"]
+	path = kbuild
+	url = git@github.com:QM-Code/kbuild.git
+[submodule "kcli"]
+	path = kcli
+	url = git@github.com:QM-Code/kcli.git
+[submodule "kconfig"]
+	path = kconfig
+	url = git@github.com:QM-Code/kconfig.git
+[submodule "ktrace"]
+	path = ktrace
+	url = git@github.com:QM-Code/ktrace.git
