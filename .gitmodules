@@ -10,3 +10,7 @@
 [submodule "ktrace"]
 	path = ktrace
 	url = git@github.com:QM-Code/ktrace.git
+[submodule "ki18n"]
+	path = ki18n
+	url = git@github.com:QM-Code/ki18n.git
+	branch = main

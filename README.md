@@ -6,6 +6,7 @@
 - `kcli/`
 - `ktrace/`
 - `kconfig/`
+- `ki18n/`
 
 If you only need the `kbuild` stack, start here before opening source files.
 
@@ -47,11 +48,13 @@ git push
 - `ktrace/`
   Trace logging SDK layered on top of `kcli`. It consumes `KcliSDK`, exposes its own SDK package, and uses `kcli` to parse `--trace*` inline options.
 - `kconfig/`
-  JSON config/storage/i18n SDK layered on top of both `kcli` and `ktrace`. It consumes `KcliSDK` and `KTraceSDK`, uses `kcli` for `--config*` inline options, and uses `ktrace` for diagnostics and demo visibility.
+  JSON config/storage SDK layered on top of both `kcli` and `ktrace`. It consumes `KcliSDK` and `KTraceSDK`, uses `kcli` for `--config*` inline options, and uses `ktrace` for diagnostics and demo visibility.
+- `ki18n/`
+  JSON internationalization SDK extracted from `kconfig`. It consumes `KConfigSDK` for config-backed asset loading and keeps direct `KcliSDK` and `KTraceSDK` imports in place for planned inline CLI and trace integration.
 
 ## Two-Minute Mental Model
 
-- Every consumer repo (`kcli`, `ktrace`, `kconfig`) has its own thin `kbuild.py` wrapper at repo root.
+- Every consumer repo (`kcli`, `ktrace`, `kconfig`, `ki18n`) has its own thin `kbuild.py` wrapper at repo root.
 - That wrapper does not contain the real build logic. It loads the shared implementation from `kbuild/libs/kbuild/` using `./.kbuild.json -> kbuild.root`.
 - First-time bootstrap for a repo is normally:
 
@@ -267,7 +270,7 @@ These demos are why `kbuild` demo order matters: the demo SDKs must exist before
 
 ## kconfig
 
-`kconfig/` is the fullest stack example in this workspace.
+`kconfig/` is the config/storage layer in this workspace.
 
 ### kbuild shape
 
@@ -285,7 +288,6 @@ These demos are why `kbuild` demo order matters: the demo SDKs must exist before
 - mutable vs read-only stores
 - file-backed config loading and persistence helpers
 - asset loading
-- i18n loading and string lookup
 - CLI assignment parsing layered on `kcli`
 - trace instrumentation layered on `ktrace`
 
@@ -312,7 +314,7 @@ It parses quoted assignment keys, JSON-like values, fallback string values, and 
 - `demo/exe/core`
   Loads runtime JSON files from `demo/exe/core/runtime/`, merges `defaults`, `user`, and `session`, optionally appends CLI overrides, then reads strongly typed config values.
 - `demo/exe/omega`
-  Adds i18n loading, asset loading, user-config API paths, optional backing-file roundtrip checks, and richer typed reads.
+  Adds asset loading, user-config API paths, optional backing-file roundtrip checks, and richer typed reads.
 - `demo/sdk/{alpha,beta,gamma}`
   Very small SDK add-ons that ensure the demo layering is real and linkable.
 
@@ -332,12 +334,43 @@ The `kconfig` demos depend on checked-in runtime data:
 - `defaults.json`
 - `user.json`
 - `session.json`
-- `i18n.json`
-- `strings/en.json`
-- `strings/fr.json`
 - `assets/banner.txt`
 
 These files are part of the actual use case, not just test noise. If a change touches `kconfig` demo behavior, inspect the runtime fixtures as part of the task.
+
+## ki18n
+
+`ki18n/` owns the extracted i18n layer from this stack.
+
+### kbuild shape
+
+- `cmake.sdk.package_name = Ki18nSDK`
+- `cmake.dependencies.KConfigSDK.prefix = ../kconfig/build/{version}/sdk`
+- `cmake.dependencies.KcliSDK.prefix = ../kcli/build/{version}/sdk`
+- `cmake.dependencies.KTraceSDK.prefix = ../ktrace/build/{version}/sdk`
+- no `vcpkg` section
+- same ordered demo set as the other repos
+
+### Public use case
+
+`ki18n` provides:
+
+- config-backed language selection and fallback loading
+- flattened key lookup over nested string JSON
+- missing-key fallback vs required-key APIs
+- token replacement helpers for translated strings
+
+### Real dependency relationship
+
+- `ki18n` links against `KConfigSDK` and uses `kconfig::store` plus `kconfig::asset` for config-backed string loading.
+- It keeps direct `KcliSDK` and `KTraceSDK` imports available for the planned inline-root and trace logging work.
+
+### Real demos
+
+- `demo/exe/core`
+  Shows the basic config-backed language load path.
+- `demo/exe/omega`
+  Carries the fuller config, i18n, asset, and backing-file flow that used to live in `kconfig`.
 
 ## Cross-Repo Build Order
 
@@ -354,6 +387,9 @@ cd /home/karmak/dev/ktools/ktrace
 
 cd /home/karmak/dev/ktools/kconfig
 ./kbuild.py --build dev --vcpkg-install
+
+cd /home/karmak/dev/ktools/ki18n
+./kbuild.py --build dev
 ```
 
 Why the shared slot matters:
@@ -362,6 +398,10 @@ Why the shared slot matters:
 - `kconfig` resolves both:
   - `../kcli/build/{version}/sdk`
   - `../ktrace/build/{version}/sdk`
+- `ki18n` resolves:
+  - `../kcli/build/{version}/sdk`
+  - `../ktrace/build/{version}/sdk`
+  - `../kconfig/build/{version}/sdk`
 
 If the slot names do not match, the dependency prefixes do not resolve.
 
@@ -375,8 +415,11 @@ If the slot names do not match, the dependency prefixes do not resolve.
 - `kconfig`
   Demo shell cases live under `demo/exe/*/cmake/tests/demo_config_cases.sh`.
   These tests depend on the checked-in runtime fixtures in the demo runtime directories.
+- `ki18n`
+  Demo shell cases live under `demo/exe/*/cmake/tests/demo_i18n_cases.sh`.
+  These tests depend on the checked-in config and string fixtures in the demo runtime directories.
 
-Across all three repos, the demos are the main end-to-end validation surface.
+Across all four repos, the demos are the main end-to-end validation surface.
 
 ## Known Gotchas
 
@@ -388,6 +431,7 @@ Across all three repos, the demos are the main end-to-end validation surface.
 - Always run `kbuild.py` from the repo root it lives in.
 - Do not build `ktrace` before `kcli` in the same slot.
 - Do not build `kconfig` before both `kcli` and `ktrace` in the same slot.
+- Do not build `ki18n` before `kconfig` in the same slot.
 - For demo failures, check:
   - missing sibling SDK package configs under `build/<slot>/sdk/lib/cmake/...`
   - missing `vcpkg` setup
@@ -403,9 +447,11 @@ If you need the fastest path to operational context:
 - `kcli/kbuild.json`
 - `ktrace/kbuild.json`
 - `kconfig/kbuild.json`
+- `ki18n/kbuild.json`
 - `kcli/demo/exe/omega/src/main.cpp`
 - `ktrace/src/ktrace/cli.cpp`
 - `kconfig/src/kconfig/cli.cpp`
-- `kconfig/demo/exe/omega/src/main.cpp`
+- `ki18n/src/ki18n/i18n.cpp`
+- `ki18n/demo/exe/omega/src/main.cpp`
 
 That set gives you the real build model, dependency layering, and the highest-signal cross-repo use cases without reopening the entire tree.
