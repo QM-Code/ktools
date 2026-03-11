@@ -1,6 +1,6 @@
 # ktools
 
-`ktools/` is a Git superproject that pins a known-good set of sibling repository commits. The root `ktools/` directory does not have its own `kbuild.py` or `CMakeLists.txt`; work still happens inside the individual repos:
+`ktools/` is a Git superproject that pins a known-good set of sibling repository commits. The root `ktools/` directory now has its own thin `kbuild.py` wrapper for git and batch orchestration, but normal source builds still happen inside the individual repos:
 
 - `kbuild/`
 - `kcli/`
@@ -25,6 +25,16 @@ git submodule update --init --recursive
 ```
 
 - Each child repo stays independent. You can still `cd kbuild` or `cd kcli` and commit or push there normally.
+- The root wrapper can also fan a command out across the pinned child repos in dependency order:
+
+```bash
+./kbuild.py --batch --build dev
+./kbuild.py --batch --build-latest
+./kbuild.py --batch --clean-all
+./kbuild.py --batch --git-sync "Sync all child repos"
+```
+
+- With no inline repo list, `--batch` uses `kbuild.json -> batch.repos`.
 - To move `ktools` to a newer child-repo commit:
 
 ```bash
@@ -54,11 +64,16 @@ git push
 
 ## Two-Minute Mental Model
 
-- Every consumer repo (`kcli`, `ktrace`, `kconfig`, `ki18n`) has its own thin `kbuild.py` wrapper at repo root.
+- The root `ktools/` repo and every child repo (`kbuild`, `kcli`, `ktrace`, `kconfig`, `ki18n`) have thin `kbuild.py` wrappers.
 - That wrapper does not contain the real build logic. It loads the shared implementation from `kbuild/libs/kbuild/` using `./.kbuild.json -> kbuild.root`.
-- First-time bootstrap for a repo is normally:
+- In a normal `ktools` checkout, the wrapper auto-detects `./kbuild`, `../kbuild`, or `.` as the shared root and writes a local `./.kbuild.json` on first run.
+- Manual bootstrap is still available if needed:
 
 ```bash
+# from /home/karmak/dev/ktools
+./kbuild.py --kbuild-root ./kbuild
+
+# from a child repo such as /home/karmak/dev/ktools/kcli
 ./kbuild.py --kbuild-root ../kbuild
 ```
 
