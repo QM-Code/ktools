@@ -1,0 +1,10 @@
+{
+  "project": {
+    "title": "Karma Tools Superproject",
+    "id": "ktools"
+  },
+  "git": {
+    "url": "https://github.com/QM-Code/ktools",
+    "auth": "git@github.com:QM-Code/ktools.git"
+  }
+}
